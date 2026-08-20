@@ -1,0 +1,25 @@
+# ====================================================================
+# Official Stata Gitignore Template
+# ====================================================================
+
+# Stata dataset and output files
+*.dta
+*.gph
+*.log
+*.smcl
+*.stpr
+*.stsem
+~*.stswp
+
+# Graphic export files from Stata 
+# (Uncomment the lines below if you do not want to track auto-generated plots)
+# *.ps
+# *.eps
+# *.wmf
+# *.emf
+# *.pdf
+# *.png
+# *.tif
+
+# Local configuration files containing personal absolute file paths
+config.do
