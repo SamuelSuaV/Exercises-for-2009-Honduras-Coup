@@ -1,0 +1,28 @@
+Prefieres enfocarnos en RMSE o en p valores?
+Uso de # Delimit creando dummies.
+No estamos capturando efectos del salario minimo?
+Usamos datos trimestrales con datos no trimestrales?
+
+
+===============================================================================
+Aprendizajes (de "Cunningham Excercises/Texas_Prisons/Do/Script.do")
+===============================================================================
+
+Aprendizajes:
+1) Es útil ver para honduras gdp_mean vs gdp_honduras. Los años donde honduras
+se desvíe pueden ser usados como regresores como proxy de los no observados.
+Esto es como decirle al modelo: Considera que honduras se desvio en t año y por
+lo tanto debes darle un peso distinto a los paises que tomen en cuenta ese año.
+2) Lo mismo se puede hacer con otros regresores.
+3) La combinación de distintos periodos de la variable a predecir
+4) Dejar una covariable sola (sin el año) hace que se tome un promedio de su
+valor en todos los años en el matching discrepancy.
+5) Si los pesos se hacen con las x, esto implica que estamos asumiendo que
+Y es una función lineal de las x. DUDA -> Entonces como se hace con ML?
+
+Aprendizajes:
+Con todos los países de centro américa no basta para tener signif. estadíst.
+El mejor p-valor posible es 1/7 = 0.143.
+Para un p-valor de 0.1, se necesitan 10 países.
+Para un p-valor de 0.05, se necesitan 20 países. -> America Latina basta
+Para un p-valor de 0.01, se necesitan 100 países. -> El sur global tiene 173

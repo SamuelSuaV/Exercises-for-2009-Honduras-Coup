@@ -3,7 +3,7 @@
 *Authors: Andrés Ham
 *Coder: Samuel Suárez
 *Project: Economic Impacts of the 2009 Honduras Coup
-*Data: Penn World Table 10.01 (+ CEPAL remittances & population, ILO minimum wage)
+*Data: Penn World Table 10.01 (+ CEPAL remittances & population, ILO minimum wage, US CPI-U)
 *Stage: Data cleaning -- PWT base panel
 
 *Last checked: 02.09.2026
@@ -15,23 +15,35 @@
 
 Purpose
 Takes Penn World Table 10.01 as the base country-year panel and enriches it with:
-two regional dummies, family remittances (level and per capita), the minimum wage
-in constant 2021 PPP dollars, and real GDP per capita. Saves the enriched panel.
+two regional dummies, family remittances (nominal and in constant 2021 USD, level
+and per capita), the minimum wage in constant 2021 PPP dollars, and per-capita
+real aggregates (GDP, capital stock, employment). Saves the enriched panel.
 
 Input
   - pwt.dta                 Penn World Table 10.01 (185 countries, 1950-2023)
   - remittances_cepal.xlsx  CEPALSTAT, "Remesas familiares" (millions of USD)
   - pop_cepal.xlsx          CEPALSTAT/CELADE, "Poblacion total" (thousands of persons)
   - minwage_ilostat.dta     ILO/ILOSTAT, "Monthly minimum wage by currency"
+  - cpi_us_worldbank.csv    World Bank FP.CPI.TOTL = US CPI-U, all items, annual
+                            average (index, 2010 = 100; 1960-2024)
 
 Output
   - pwt_clean.dta           PWT panel + constructed variables
 
 Notes
-  - Merges are done on (country, year); CEPAL and ILO country names are
-    harmonised to the PWT spelling before merging.
-  - remittances_pc = remittances (mill. USD) / pop_cepal (thousands) * 1000  -> USD per capita
-  - rgdpo_pc       = rgdpo (mill. 2021 USD) / pop (millions)                 -> 2021 USD per capita
+  - Merges are done on (country, year), except the US CPI-U which merges on year
+    only; CEPAL and ILO country names are harmonised to the PWT spelling first.
+  - remittances_pc      = remittances (mill. current USD) / pop_cepal (thousands)
+                          * 1000                                -> current USD per capita
+  - US CPI-U is rebased to 2021 = 100 before merging;
+    remittances_real    = remittances / (cpi_us / 100)          -> mill. constant 2021 USD
+    remittances_real_pc = remittances_real / pop_cepal * 1000   -> constant 2021 USD per capita
+    remittances_real_pc is the series comparable to rgdpo_pc; the nominal
+    remittances_pc is kept for reference only.
+  - rgdpo_pc = rgdpo (mill. 2021 USD) / pop (millions)  -> constant 2021 USD per capita
+    cap_pc   = rnna  (mill. 2021 USD) / pop (millions)  -> constant 2021 USD per capita
+    lab_pc   = emp   (millions)       / pop (millions)  -> persons engaged / population
+    (cap_pc is real by construction; lab_pc is a ratio, nothing to deflate)
   - Minimum wage: the "Currency: 2021 PPP $" slice is kept.
     NOTE for Honduras: the ILO series changes type in 2008 (national wage ->
     sectoral "manufacturing"), with a 2008->2009 jump that reflects the real
@@ -41,9 +53,10 @@ Notes
 
 Index
   1. Regional dummies (Central America & the Caribbean; Latin America)
-  2. Family remittances, level and per capita (CEPAL)
+  2. Family remittances -- nominal and constant 2021 USD, level and per capita
+     (CEPAL remittances & population; US CPI-U deflator)
   3. Minimum wage in constant 2021 PPP dollars (ILO)
-  4. Real GDP per capita (PWT)
+  4. Per-capita real aggregates: GDP, capital stock, employment (PWT)
   5. Labels
 
 ********************************************************************************
@@ -75,7 +88,8 @@ global pwt          "${data}/pwt.dta"
 global remitt_raw   "${data}/remittances_cepal.xlsx"
 global pop_raw      "${data}/pop_cepal.xlsx"
 global minwage_raw  "${data}/minwage_ilostat.dta"
-global pwt_out      "${data}/pwt_clean.dta"
+global cpi_raw      "${data}/cpi_us_worldbank.csv"
+global pwt_clean    "${data}/pwt_clean.dta"
 *For variables
 global id           "id year"
 *For parameters
@@ -177,8 +191,29 @@ merge m:1 country year using `pop'
 drop if _merge == 2
 drop _merge
 
-* Remittances per capita: (mill. USD)/(thousand persons)*1000 = USD per capita
-gen double remittances_pc = remittances / pop_cepal * 1000
+* --- US CPI-U (all items, annual average), rebased to 2021 = 100 ---
+preserve
+    import delimited "${cpi_raw}", varnames(1) clear
+    destring year cpi_us, replace
+    * Rebase the index so 2021 = 100 -> dividing by it deflates to constant 2021 USD
+    summarize cpi_us if year == 2021, meanonly
+    assert r(N) == 1
+    replace cpi_us = 100 * cpi_us / r(mean)
+    isid year
+    tempfile cpi
+    save `cpi'
+restore
+merge m:1 year using `cpi'
+drop if _merge == 2
+drop _merge
+
+* Remittances per capita.
+*  - remittances_pc      : nominal, (mill. current USD)/(thousand persons)*1000
+*  - remittances_real    : mill. constant 2021 USD (deflated by US CPI-U)
+*  - remittances_real_pc : constant 2021 USD per capita -- comparable to rgdpo_pc
+gen double remittances_pc      = remittances / pop_cepal * 1000
+gen double remittances_real    = remittances / (cpi_us / 100)
+gen double remittances_real_pc = remittances_real / pop_cepal * 1000
 
 ***************3. Minimum wage in constant 2021 PPP dollars (ILO) ***********
 
@@ -209,26 +244,33 @@ merge m:1 country year using `minwage'
 drop if _merge == 2
 drop _merge
 
-********************4. Real GDP per capita (PWT) ***************************
+********************4. Per-capita real aggregates (PWT) ******************
 
-* rgdpo in mill. 2021 USD (chained PPP); pop in millions -> 2021 USD per capita
-gen double rgdpo_pc = rgdpo / pop
+* rgdpo, rnna in mill. constant 2021 USD; pop, emp in millions
+gen double rgdpo_pc = rgdpo / pop        // output-side real GDP,  constant 2021 USD p.c.
+gen double cap_pc   = rnna  / pop        // real capital stock,    constant 2021 USD p.c.
+gen double lab_pc   = emp   / pop        // persons engaged per capita (emp/pop ratio)
 
 ****************************5. Labels **********************************
 
-label var central_caribbean "Central America & the Caribbean (=1)"
-label var latin_america     "Latin America as a whole (=1)"
-label var remittances       "Family remittances (millions of current USD, CEPAL)"
-label var pop_cepal         "Total mid-year population (thousands of persons, CEPAL/CELADE)"
-label var remittances_pc    "Family remittances per capita (current USD per capita)"
-label var minwage_ppp       "Monthly minimum wage (constant 2021 PPP USD, ILO)"
-label var rgdpo_pc          "Real GDP per capita (output-side, chained PPP, 2021 USD)"
-label data "PWT 10.01 + regional dummies, remittances (CEPAL) and minimum wage (ILO) -- 01b"
+label var central_caribbean   "Central America & the Caribbean (=1)"
+label var latin_america       "Latin America as a whole (=1)"
+label var remittances         "Family remittances (millions of current USD, CEPAL)"
+label var pop_cepal           "Total mid-year population (thousands of persons, CEPAL/CELADE)"
+label var cpi_us              "US CPI-U, all items, annual avg (rebased 2021 = 100; World Bank/BLS)"
+label var remittances_pc      "Family remittances per capita (current USD)"
+label var remittances_real    "Family remittances (millions of constant 2021 USD, CPI-U deflated)"
+label var remittances_real_pc "Family remittances per capita (constant 2021 USD, CPI-U deflated)"
+label var minwage_ppp         "Monthly minimum wage (constant 2021 PPP USD, ILO)"
+label var rgdpo_pc            "Real GDP per capita (output-side, chained PPP, 2021 USD)"
+label var cap_pc              "Real capital stock per capita (constant 2021 national prices, 2021 USD)"
+label var lab_pc              "Persons engaged per capita (employment / population)"
+label data "PWT 10.01 + regional dummies, remittances nominal & real (CEPAL, US CPI-U) and minimum wage (ILO) -- 01b"
 
 ************************************The End*************************************
 
 compress
-save "${pwt_out}", replace
+save "${pwt_clean}", replace
 
 *Timer display
 timer off 1
