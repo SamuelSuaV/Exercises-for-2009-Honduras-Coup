@@ -15,7 +15,7 @@
 
 Purpose
 Takes Penn World Table 10.01 as the base country-year panel and enriches it with:
-two regional dummies, family remittances (nominal and in constant 2021 USD, level
+three regional dummies, family remittances (nominal and in constant 2021 USD, level
 and per capita), the minimum wage in constant 2021 PPP dollars, and per-capita
 real aggregates (GDP, capital stock, employment). Saves the enriched panel.
 
@@ -48,16 +48,20 @@ Notes
     NOTE for Honduras: the ILO series changes type in 2008 (national wage ->
     sectoral "manufacturing"), with a 2008->2009 jump that reflects the real
     Honduran minimum-wage hike; pre- and post-2008 are not the same concept.
-  - central_caribbean and latin_america span the whole panel (=0 outside the
-    region); latin_america contains central_caribbean.
+  - central_caribbean, latin_america and south_america span the whole panel
+    (=0 outside the region); latin_america contains both of the others.
+  - Section 5 drops countries (Honduras excluded from risk) that aren't
+    complete on rgdpo_pc/cap_pc/lab_pc/hc over 1993-2019, so every remaining
+    country is a valid SCM donor for every 03b model (see 03b for why).
 
 Index
-  1. Regional dummies (Central America & the Caribbean; Latin America)
+  1. Regional dummies (Central America & the Caribbean; Latin America; South America)
   2. Family remittances -- nominal and constant 2021 USD, level and per capita
      (CEPAL remittances & population; US CPI-U deflator)
   3. Minimum wage in constant 2021 PPP dollars (ILO)
   4. Per-capita real aggregates: GDP, capital stock, employment (PWT)
-  5. Labels
+  5. Sample restriction: complete SCM-window coverage
+  6. Labels
 
 ********************************************************************************
 */
@@ -139,14 +143,26 @@ foreach c in "Mexico" "Argentina" "Bolivia (Plurinational State of)" "Brazil"   
     replace latin_america = 1 if country == "`c'"
 }
 
+* South America (subset of latin_america, disjoint from central_caribbean)
+gen byte south_america = 0
+foreach c in "Argentina" "Bolivia (Plurinational State of)" "Brazil" "Chile"        ///
+             "Colombia" "Ecuador" "Guyana" "Paraguay" "Peru" "Suriname"            ///
+             "Uruguay" "Venezuela (Bolivarian Republic of)" {
+    replace south_america = 1 if country == "`c'"
+}
+
 * Checks: number of countries (not country-year rows) in each dummy
 egen _tag = tag(country)
 count if _tag & central_caribbean
 assert r(N) == 27
 count if _tag & latin_america
 assert r(N) == 40
+count if _tag & south_america
+assert r(N) == 12
 drop _tag
 assert latin_america == 1 if central_caribbean == 1
+assert latin_america == 1 if south_america == 1
+assert !(central_caribbean & south_america)
 
 *******************2. Family remittances, level and per capita (CEPAL) ******
 
@@ -251,10 +267,22 @@ gen double rgdpo_pc = rgdpo / pop        // output-side real GDP,  constant 2021
 gen double cap_pc   = rnna  / pop        // real capital stock,    constant 2021 USD p.c.
 gen double lab_pc   = emp   / pop        // persons engaged per capita (emp/pop ratio)
 
-****************************5. Labels **********************************
+*************5. Sample restriction: complete SCM-window coverage ***********
+
+* A single missing year in any of these four breaks any SCM model that
+* touches it (synth aborts outright, not just drops the donor) -- keep only
+* countries complete on all four over 1993-2019.
+gen byte _ok_yr = !missing(rgdpo_pc, cap_pc, lab_pc, hc) if inrange(year, 1993, 2019)
+bysort country: egen byte _complete = min(_ok_yr)
+assert _complete == 1 if country == "Honduras"
+drop if _complete != 1
+drop _ok_yr _complete
+
+****************************6. Labels **********************************
 
 label var central_caribbean   "Central America & the Caribbean (=1)"
 label var latin_america       "Latin America as a whole (=1)"
+label var south_america       "South America (=1)"
 label var remittances         "Family remittances (millions of current USD, CEPAL)"
 label var pop_cepal           "Total mid-year population (thousands of persons, CEPAL/CELADE)"
 label var cpi_us              "US CPI-U, all items, annual avg (rebased 2021 = 100; World Bank/BLS)"

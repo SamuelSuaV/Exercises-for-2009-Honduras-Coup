@@ -1,7 +1,18 @@
-Prefieres enfocarnos en RMSE o en p valores?
+
 Uso de # Delimit creando dummies.
 No estamos capturando efectos del salario minimo?
-Usamos datos trimestrales con datos no trimestrales?
+Usamos datos trimestrales con datos no trimestrales? Por ejemplo dejar países con trimestral en trimestral y el resto poner anual en cada trimestre (o buscar otra alternativa).
+
+En 1991, hubo un shock de empleo en honduras que generó informalidad xq Rafael Leonardo Callejas
+Implemento reformas austeras y de exportación. Aumento mucho la informalidad y en 1992 se redefinio empleo. Ahora cualquiera que trabajara una hora era empleado. Que hacemos?
+
+Formas de calcular el error fuera de muestra? No estaría calculando el error de los modelos con años. Prefieres enfocarnos en RMSE o en p valores
+
+Aumentar años de muestra con correcciones?
+
+Time placebo tests?
+
+Poner las variables en tasas de cambio?
 
 
 ===============================================================================

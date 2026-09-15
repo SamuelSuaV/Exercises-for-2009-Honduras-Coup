@@ -1,0 +1,190 @@
+% Results
+% Collects the exhibits produced by Honduras Excercises/do/03b_PWT_SCM_implementation.do
+% and 04_b_PWT_SCM_graphs.do.
+% Build:  pdflatex results.tex  (run twice for the table of contents)
+% Paths are relative to Honduras Excercises/reports/.
+
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage[section]{placeins}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{pgffor}
+
+\graphicspath{{../output/figures/}}
+
+% Wrap a self-contained tabular file into a captioned float, shrunk to
+% \textwidth only if it would otherwise be too wide.
+\newsavebox{\statsbox}
+\newcommand{\statstable}[3]{% #1 = tabular file, #2 = caption, #3 = label
+  \begin{table}[htbp]\centering
+  \caption{#2}\label{#3}%
+  \sbox{\statsbox}{\input{#1}}%
+  \resizebox{\ifdim\wd\statsbox>\textwidth\textwidth\else\wd\statsbox\fi}{!}{\usebox{\statsbox}}%
+  \end{table}}
+
+% One sample's 5-model grid of a given figure prefix (e.g. gap_world ->
+% gap_world_naive, gap_world_naive_yrs, ...), each panel labeled with its
+% model name (Stata's baked-in title is too small to read at this scale).
+\newcommand{\modelgrid}[1]{%
+  \foreach \m/\mlabel in {naive/naive, naive_yrs/naive\_yrs, factors/factors,
+                           factors_gdp/factors\_gdp, factors_yrs/factors\_yrs} {%
+    \begin{minipage}[t]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\linewidth]{#1_\m}\\[2pt]
+      {\footnotesize \mlabel}
+    \end{minipage}\hfill
+  }%
+  \par\bigskip
+}
+
+\title{Results}
+\author{Samuel Su\'arez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\bigskip
+
+\noindent This report collects the synthetic-control exhibits produced by
+\path{03b_PWT_SCM_implementation.do} and
+\path{04_b_PWT_SCM_graphs.do} (in \path{Honduras Excercises/do/}):
+the fitted synthetic-control graphs, the Honduras-vs-synthetic prediction-error
+gap, the in-space placebo distribution and its RMSPE histograms and p-values,
+the placebo overlay graphs (with and without poor-fitting outliers), and the
+donor-weight composition tables. Every model x sample combination is reported
+for all four donor pools: World, Latin America, South America, and Central
+America \& the Caribbean. Treatment year is 2009 (the coup); the pre-treatment
+fit window is 1993--2008 and the plotted window 1993--2019.
+
+\section{SCM Fit (03b)}
+
+The fitted synthetic control for Honduras against each donor pool, one figure
+per model (\path{synth_<sample>_<model>.gph}, converted to PDF/PNG for this
+report -- Cunningham Texas script's \texttt{graph save Graph ..., replace}
+step).
+
+\subsection*{World}
+\modelgrid{synth_world}
+\subsection*{Latin America}
+\modelgrid{synth_latin_america}
+\subsection*{South America}
+\modelgrid{synth_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgrid{synth_central_caribbean}
+
+\clearpage
+\section{Section 1: Gap in Predicted Error}
+
+Honduras minus synthetic Honduras, over time, per model x sample (Texas
+script's \texttt{gap48} plot). A gap near zero pre-2009 and diverging after
+signals a credible fit.
+
+\subsection*{World}
+\modelgrid{gap_world}
+\subsection*{Latin America}
+\modelgrid{gap_latin_america}
+\subsection*{South America}
+\modelgrid{gap_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgrid{gap_central_caribbean}
+
+\clearpage
+\section{Section 2: In-Space Placebo Computation}
+
+For every sample x model, \texttt{04\_b} sec.\ 2 reruns \texttt{synth} once per
+non-Honduras pool member as if that unit were treated (donor pool = the rest
+of the pool, Honduras included as a donor), recording each unit's pre- and
+post-2009 RMSPE. This step produces no figures or tables of its own -- it is
+the data source for the RMSPE histograms (Section 3), the p-values
+(Section 4), and the placebo overlays (Sections 5--6) below.
+
+\FloatBarrier
+\section{Section 3: RMSPE Histograms}
+
+Distribution of the post/pre RMSPE ratio across Honduras and every placebo
+unit, per model x sample (Texas script's
+\texttt{histogram ratio, bin(20) frequency}).
+
+\subsection*{World}
+\modelgrid{rmspe_hist_world}
+\subsection*{Latin America}
+\modelgrid{rmspe_hist_latin_america}
+\subsection*{South America}
+\modelgrid{rmspe_hist_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgrid{rmspe_hist_central_caribbean}
+
+\clearpage
+\FloatBarrier
+\section{Section 4: P-Values}
+
+In-space placebo p-value ($p = \text{rank}/(J{+}1)$ of Honduras' post/pre
+RMSPE ratio within its placebo distribution) for every model x sample. Unlike
+the other sections, this is a single table -- samples are columns, not
+separate exhibits.
+
+\statstable{../output/tables/pvalues.tex}{In-space placebo p-values (rank / (J+1))}{tab:pvalues}
+
+\FloatBarrier
+\section{Section 5: Placebo Overlay --- All Units}
+
+Every pool member's gap (thin gray) against Honduras' own gap (thick
+cranberry), per model x sample.
+
+\subsection*{World}
+\modelgrid{placebo_world}
+\subsection*{Latin America}
+\modelgrid{placebo_latin_america}
+\subsection*{South America}
+\modelgrid{placebo_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgrid{placebo_central_caribbean}
+
+\clearpage
+\section{Section 6: Placebo Overlay --- Excluding Outliers}
+
+Same as Section 5, dropping pool members whose pre-treatment RMSPE exceeds
+2x Honduras' own (poor pre-treatment fit makes their post-period gap
+uninformative -- standard robustness check, Abadie et al.).
+
+\subsection*{World}
+\modelgrid{placebo_ex_world}
+\subsection*{Latin America}
+\modelgrid{placebo_ex_latin_america}
+\subsection*{South America}
+\modelgrid{placebo_ex_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgrid{placebo_ex_central_caribbean}
+
+\clearpage
+\FloatBarrier
+\section{Section 7: SCM Weights Composition}
+
+Donor weight given to each country by each model, zero-weight cells
+excluded. One table per sample (unlike Section 4, these are not combined).
+
+% longtable, not \statstable -- World runs to 140+ rows and needs to break
+% across pages; captions are baked into each generated .tex file.
+\subsection*{World}
+\begingroup\small
+\input{../output/tables/scm_weights_world.tex}
+\endgroup
+\subsection*{Latin America}
+\input{../output/tables/scm_weights_latin_america.tex}
+\subsection*{South America}
+\input{../output/tables/scm_weights_south_america.tex}
+\subsection*{Central America \& the Caribbean}
+\input{../output/tables/scm_weights_central_caribbean.tex}
+
+\end{document}

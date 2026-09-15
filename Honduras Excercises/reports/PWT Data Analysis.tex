@@ -134,6 +134,19 @@ the eight CEPAL countries; the minimum wage is the ILO ``2021 PPP \$'' slice.
 \endgroup
 
 \FloatBarrier
+\section{SCM-eligible countries by donor pool}
+
+Section~\ref{sec:scm-countries} lists, for each donor pool used by
+\texttt{03b\_PWT\_SCM\_implementation.do}, the countries that remain after
+requiring complete real GDP, capital stock, employment and human-capital data
+over 1993--2019 (see \texttt{01b\_PWT\_data\_cleaning.do}, section~5) --
+countries with even a single missing year in any of these four abort any
+synth model that touches it.
+\label{sec:scm-countries}
+
+\input{../output/tables/scm_countries.tex}
+
+\FloatBarrier
 \section{Aprendizajes (ejercicios de Cunningham)}
 
 Notas tomadas de \texttt{Cunningham Excercises/Texas\_Prisons/Do/Script.do}

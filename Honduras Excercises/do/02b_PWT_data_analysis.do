@@ -33,6 +33,9 @@ Output
     yearly average, one time-series plot per summary-stat variable (+ combined grid).
   - output/tables/data_coverage.tex / .csv   Section 4: per-country availability of
     the $sumvars variables -- year span (first-last, * = gappy, . = never observed).
+  - output/tables/scm_countries.tex   Section 5: SCM-eligible countries per donor
+    pool (world/latin_america/south_america/central_caribbean), post 01b sec.5
+    coverage restriction.
 
 Notes
   - Section 1 summarises the key per-capita variables for four nested samples:
@@ -68,6 +71,8 @@ Index
      latin_america, world
   3. Comparison of averages -- Honduras vs each regional average, one plot per variable
   4. Missing values composition -- per-country availability (year span) of each variable
+  5. SCM-eligible countries per donor pool (world/latin_america/south_america/
+     central_caribbean), for the report
 
 ********************************************************************************
 */
@@ -124,6 +129,7 @@ global sumlabels
 
 *User packages (install once)
 *ssc install estout
+*ssc install schemepack
 
 *Housekeeping
 clear all
@@ -196,14 +202,16 @@ foreach s in hnd cac lac wld {
 **************2. World, South America, Central America & Caribbean, Averages ***
 
 * Year-by-year cross-country means of the summary-stat variables, one block of
-* rows per sample. central_caribbean and latin_america come from 01b; honduras,
-* south_america and world are built here. honduras is a subset of
+* rows per sample. central_caribbean, latin_america and south_america come
+* from 01b; honduras and world are built here. honduras is a subset of
 * central_caribbean; world is every country.
 *
-* latin_america (40) = central_caribbean (27) + South America (12) + Mexico (1).
+* latin_america (23) = central_caribbean (12) + South America (10) + Mexico (1).
 * Mexico is North America, so it sits in neither central_caribbean nor
 * south_america; it is not broken out on its own -- it only feeds the
-* latin_america and world averages.
+* latin_america and world averages. Counts are post-01b-sec.5 restriction
+* (complete rgdpo_pc/cap_pc/lab_pc/hc, 1993-2019), so lower than the raw
+* regional-dummy counts asserted in 01b.
 *
 * Saved long, keyed (region, year); mean variables keep their original names, a
 * parallel n_* variable counts the contributing countries.
@@ -212,29 +220,21 @@ foreach s in hnd cac lac wld {
 gen byte honduras = country == "Honduras"
 gen byte world    = 1
 
-gen byte south_america = 0
-foreach c in "Argentina" "Bolivia (Plurinational State of)" "Brazil" "Chile"      ///
-             "Colombia" "Ecuador" "Guyana" "Paraguay" "Peru" "Suriname"           ///
-             "Uruguay" "Venezuela (Bolivarian Republic of)" {
-    replace south_america = 1 if country == "`c'"
-}
-
-label var honduras      "Honduras (=1)"
-label var south_america "South America (=1)"
-label var world         "World -- every PWT country (=1)"
+label var honduras "Honduras (=1)"
+label var world    "World -- every PWT country (=1)"
 
 * --- Checks: country counts and the Latin America split ---
 egen _tag = tag(country)
 count if _tag & honduras
 assert r(N) == 1
 count if _tag & south_america
-assert r(N) == 12
+assert r(N) == 10
 count if _tag & central_caribbean
-assert r(N) == 27
+assert r(N) == 12
 count if _tag & latin_america
-assert r(N) == 40
+assert r(N) == 23
 count if _tag
-assert r(N) == 185
+assert r(N) == 144
 * central_caribbean and south_america are disjoint subsets of latin_america;
 * the single remaining latin_america country is Mexico
 assert latin_america if central_caribbean
@@ -287,15 +287,20 @@ di as result `"Wrote ${yravg}"'
 * America, Latin America and the World. Dashed vertical line marks the 2009 coup.
 * A region's line is only drawn if it has data for that variable (South America
 * has no remittances), and the legend is built to match.
+* Clean schemepack look (white_tableau); every year labelled on the x-axis,
+* rotated 90 degrees so the ticks do not collide.
 
 use "${yravg}", clear
 sort region year
 
-* Per-region line options and legend text
-local o_central_caribbean "lcolor(dkorange) lpattern(solid)"
-local o_south_america     "lcolor(forest_green) lpattern(solid)"
-local o_latin_america     "lcolor(navy) lpattern(solid)"
-local o_world             "lcolor(gs7) lpattern(dash)"
+* Clean modern look (schemepack; install line commented above)
+local sc "white_tableau"
+
+* Per-region line options and legend text (regional means muted, Honduras bold)
+local o_central_caribbean "lcolor(orange%75) lwidth(medthin)"
+local o_south_america     "lcolor(teal%75) lwidth(medthin)"
+local o_latin_america     "lcolor(navy%75) lwidth(medthin)"
+local o_world             "lcolor(gs7%75) lwidth(medthin) lpattern(dash)"
 local L_central_caribbean "Central America & Caribbean"
 local L_south_america     "South America"
 local L_latin_america     "Latin America"
@@ -333,32 +338,38 @@ foreach v of global sumvars {
     local plot `"`plot' (line `v' year if region=="honduras", lcolor(cranberry) lwidth(thick))"'
     local legend `"`k' "Honduras" `legreg'"'
 
+    * Label every year on the x-axis (tilted so they do not overlap)
     twoway `plot', ///
-        scheme(s2color) ///
-        title("`t_`v''") ///
+        scheme(`sc') ///
+        title("`t_`v''", size(medium)) ///
         subtitle("Honduras vs. regional yearly averages", size(small)) ///
-        ytitle("`u_`v''") ylabel(, angle(0) format(%12.0gc)) xtitle("") ///
-        xline(2009, lpattern(dash) lcolor(gs10)) ///
-        legend(order(`legend') rows(1) size(vsmall) region(lstyle(none))) ///
+        ytitle("`u_`v''", size(small)) ///
+        ylabel(, angle(0) format(%12.0gc) labsize(small) grid glcolor(gs15) glwidth(vvthin)) ///
+        xtitle("") ///
+        xlabel(1950(1)2023, angle(90) labsize(tiny) tlength(*.6) nogrid) ///
+        xline(2009, lcolor(gs9) lpattern(shortdash) lwidth(thin)) ///
+        legend(order(`legend') rows(1) size(vsmall) region(lstyle(none)) position(6)) ///
+        plotregion(lstyle(none)) ///
         name(g_`v', replace)
     graph export "${graphs}/avg_`v'.pdf", replace
-    graph export "${graphs}/avg_`v'.png", replace width(1800)
+    graph export "${graphs}/avg_`v'.png", replace width(2200)
 
-    * Legend-free, stripped-down copy for the combined grid
+    * Legend-free, stripped-down copy for the combined grid (decade ticks, tilted)
     twoway `plot', ///
-        scheme(s2color) title("`t_`v''", size(medsmall)) ///
-        ytitle("") ylabel(#4, angle(0) format(%12.0gc) labsize(vsmall)) ///
-        xtitle("") xlabel(1960(20)2020, labsize(vsmall)) ///
-        xline(2009, lpattern(dash) lcolor(gs10)) ///
-        legend(off) name(gc_`v', replace) nodraw
+        scheme(`sc') title("`t_`v''", size(medsmall)) ///
+        ytitle("") ylabel(#4, angle(0) format(%12.0gc) labsize(vsmall) ///
+                          grid glcolor(gs15) glwidth(vvthin)) ///
+        xtitle("") xlabel(1950(10)2020, angle(90) labsize(vsmall) nogrid) ///
+        xline(2009, lcolor(gs9) lpattern(shortdash) lwidth(thin)) ///
+        plotregion(lstyle(none)) legend(off) name(gc_`v', replace) nodraw
 }
 
 * Combined overview grid
 graph combine gc_rgdpo_pc gc_cap_pc gc_lab_pc gc_hc gc_remittances_real_pc gc_minwage_ppp, ///
-    cols(2) scheme(s2color) xsize(9) ysize(11) ///
+    cols(2) scheme(`sc') xsize(9) ysize(11) imargin(medsmall) ///
     title("Honduras vs. regional averages, 1950-2023", size(medium)) ///
     note("Cranberry (thick) = Honduras; orange = Central America & Caribbean;" ///
-         "green = South America; navy = Latin America; grey dashed = World." ///
+         "teal = South America; navy = Latin America; grey dashed = World." ///
          "Dashed vertical line = 2009 coup. South America has no remittances data." ///
          "Panel y-axes: GDP, capital, remittances = constant 2021 USD; minimum wage = 2021 PPP USD;" ///
          "employment/population and human capital index are unitless.", size(vsmall)) ///
@@ -467,6 +478,38 @@ di as result `"Wrote ${covtex}"'
 * Log preview: Central America & the Caribbean
 list country s_rgdpo_pc s_cap_pc s_lab_pc s_hc s_remittances_real_pc s_minwage_ppp ///
     if central_caribbean, noobs sep(0) abbrev(20)
+
+*******************5. SCM-eligible countries per donor pool ******************
+
+* Roster of countries in each 03b donor pool, post 01b sec.5 restriction
+* (complete rgdpo_pc/cap_pc/lab_pc/hc, 1993-2019). Written as a LaTeX
+* description list, one block per sample.
+
+use "${pwt_clean}", clear
+egen _tag = tag(country)
+keep if _tag
+drop _tag
+gen byte world = 1
+
+local scmsamples "world latin_america south_america central_caribbean"
+
+file open _tex using "${tables}/scm_countries.tex", write replace
+file write _tex "% SCM-eligible countries by donor pool -- 02b sec.5" _n
+file write _tex "\begin{description}" _n
+foreach s of local scmsamples {
+    if      "`s'" == "world"             local stitle "World"
+    else if "`s'" == "latin_america"     local stitle "Latin America"
+    else if "`s'" == "south_america"     local stitle "South America"
+    else if "`s'" == "central_caribbean" local stitle "Central America \& the Caribbean"
+
+    count if `s' == 1
+    local n = r(N)
+    levelsof country if `s' == 1, clean sep(", ")
+    file write _tex "\item[`stitle' (`n')] `r(levels)'" _n
+}
+file write _tex "\end{description}" _n
+file close _tex
+di as result "Wrote ${tables}/scm_countries.tex"
 
 ************************************The End*************************************
 
