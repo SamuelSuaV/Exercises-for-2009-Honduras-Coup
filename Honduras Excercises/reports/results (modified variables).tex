@@ -1,0 +1,160 @@
+% Results (Modified Variables)
+% Collects the log_/diff_ model exhibits produced by
+% Honduras Excercises/do/03b_PWT_SCM_implementation.do and
+% 04_b_PWT_SCM_graphs.do -- companion to results.tex, which covers the level
+% models. Mirrors results.tex's structure/macros; only the model list differs.
+% Build:  pdflatex "results (modified variables).tex"  (run twice for the ToC)
+% Paths are relative to Honduras Excercises/reports/.
+
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage[section]{placeins}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{pgffor}
+
+\graphicspath{{../output/figures/}}
+
+% One sample's 8-model grid of a given figure prefix (e.g. gap_world ->
+% gap_world_naive_log, gap_world_naive_yrs_log, ...), each panel labeled with
+% its model name (Stata's baked-in title is too small to read at this scale).
+\newcommand{\modelgridmod}[1]{%
+  \foreach \m/\mlabel in {naive_log/naive\_log, naive_yrs_log/naive\_yrs\_log,
+                           factors_log/factors\_log, factors_gdp_log/factors\_gdp\_log,
+                           factors_yrs_log/factors\_yrs\_log, naive_diff/naive\_diff,
+                           factors_diff/factors\_diff, factors_gdp_diff/factors\_gdp\_diff} {%
+    \begin{minipage}[t]{0.48\linewidth}
+      \centering
+      \includegraphics[width=\linewidth]{#1_\m}\\[2pt]
+      {\footnotesize \mlabel}
+    \end{minipage}\hfill
+  }%
+  \par\bigskip
+}
+
+\title{Results (Modified Variables)}
+\author{Samuel Su\'arez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\bigskip
+
+\noindent This report collects the synthetic-control exhibits for the
+log-transform and first-difference models (\path{03b_PWT_SCM_implementation.do}'s
+\texttt{models\_log}/\texttt{models\_diff}), companion to the main
+\texttt{Results} report, which covers the level models. Same recipe throughout:
+the fitted synthetic-control graphs, the Honduras-vs-synthetic prediction-error
+gap, the in-space placebo distribution and its RMSPE histograms, and the
+placebo overlay graphs (with and without poor-fitting outliers). Every model x
+sample combination is reported for all four donor pools: World, Latin America,
+South America, and Central America \& the Caribbean. Treatment year is 2009
+(the coup); the pre-treatment fit window is 1993--2008 and the plotted window
+1993--2019. \texttt{models\_diff} has no \texttt{\_yrs} variant (a single-year
+first-difference predictor risks being missing for donors whose series doesn't
+extend a year before 1993, which would abort \texttt{synth} outright) -- eight
+models appear here per sample instead of the main report's five.
+
+\noindent The in-space placebo p-values and donor-weight tables (the main
+report's Sections 4 and 7) already tabulate every model -- level, log, and
+first-difference -- side by side for comparison, so they are not repeated in
+this report; see \texttt{results.tex}.
+
+\section{SCM Fit (03b)}
+
+The fitted synthetic control for Honduras against each donor pool, one figure
+per model (\path{synth_<sample>_<model>.gph}, exported to PDF/PNG for this
+report).
+
+\subsection*{World}
+\modelgridmod{synth_world}
+\subsection*{Latin America}
+\modelgridmod{synth_latin_america}
+\subsection*{South America}
+\modelgridmod{synth_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgridmod{synth_central_caribbean}
+
+\clearpage
+\section{Section 1: Gap in Predicted Error}
+
+Honduras minus synthetic Honduras, over time, per model x sample. A gap near
+zero pre-2009 and diverging after signals a credible fit.
+
+\subsection*{World}
+\modelgridmod{gap_world}
+\subsection*{Latin America}
+\modelgridmod{gap_latin_america}
+\subsection*{South America}
+\modelgridmod{gap_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgridmod{gap_central_caribbean}
+
+\clearpage
+\section{Section 2: In-Space Placebo Computation}
+
+For every sample x model, \texttt{04\_b} sec.\ 2 reruns \texttt{synth} once per
+non-Honduras pool member as if that unit were treated (donor pool = the rest
+of the pool, Honduras included as a donor), recording each unit's pre- and
+post-2009 RMSPE. This step produces no figures or tables of its own -- it is
+the data source for the RMSPE histograms (Section 3) and the placebo overlays
+(Sections 5--6) below.
+
+\FloatBarrier
+\section{Section 3: RMSPE Histograms}
+
+Distribution of the post/pre RMSPE ratio across Honduras and every placebo
+unit, per model x sample.
+
+\subsection*{World}
+\modelgridmod{rmspe_hist_world}
+\subsection*{Latin America}
+\modelgridmod{rmspe_hist_latin_america}
+\subsection*{South America}
+\modelgridmod{rmspe_hist_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgridmod{rmspe_hist_central_caribbean}
+
+\clearpage
+\FloatBarrier
+\section{Section 5: Placebo Overlay --- All Units}
+
+Every pool member's gap (thin gray) against Honduras' own gap (thick
+cranberry), per model x sample.
+
+\subsection*{World}
+\modelgridmod{placebo_world}
+\subsection*{Latin America}
+\modelgridmod{placebo_latin_america}
+\subsection*{South America}
+\modelgridmod{placebo_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgridmod{placebo_central_caribbean}
+
+\clearpage
+\section{Section 6: Placebo Overlay --- Excluding Outliers}
+
+Same as Section 5, dropping pool members whose pre-treatment RMSPE exceeds
+2x Honduras' own (poor pre-treatment fit makes their post-period gap
+uninformative -- standard robustness check, Abadie et al.).
+
+\subsection*{World}
+\modelgridmod{placebo_ex_world}
+\subsection*{Latin America}
+\modelgridmod{placebo_ex_latin_america}
+\subsection*{South America}
+\modelgridmod{placebo_ex_south_america}
+\subsection*{Central America \& the Caribbean}
+\modelgridmod{placebo_ex_central_caribbean}
+
+\end{document}

@@ -16,8 +16,9 @@
 Purpose
 Takes Penn World Table 10.01 as the base country-year panel and enriches it with:
 three regional dummies, family remittances (nominal and in constant 2021 USD, level
-and per capita), the minimum wage in constant 2021 PPP dollars, and per-capita
-real aggregates (GDP, capital stock, employment). Saves the enriched panel.
+and per capita), the minimum wage in constant 2021 PPP dollars, per-capita
+real aggregates (GDP, capital stock, employment), and log/first-difference
+transforms of the six variables of interest. Saves the enriched panel.
 
 Input
   - pwt.dta                 Penn World Table 10.01 (185 countries, 1950-2023)
@@ -28,7 +29,8 @@ Input
                             average (index, 2010 = 100; 1960-2024)
 
 Output
-  - pwt_clean.dta           PWT panel + constructed variables
+  - pwt_clean.dta           PWT panel + constructed variables, incl. log_<var>/
+                            diff_<var> for every $sumvars variable
 
 Notes
   - Merges are done on (country, year), except the US CPI-U which merges on year
@@ -53,6 +55,11 @@ Notes
   - Section 5 drops countries (Honduras excluded from risk) that aren't
     complete on rgdpo_pc/cap_pc/lab_pc/hc over 1993-2019, so every remaining
     country is a valid SCM donor for every 03b model (see 03b for why).
+  - Section 6 adds log_<var> and diff_<var> for every $sumvars variable ($sumvars
+    is the same six-variable list 02b/03b use). diff_<var> = D.<var>, the
+    year-over-year change; D. respects xtset gaps, so it's missing unless year
+    and year-1 both exist for that country. Feeds 02b's "modified variables"
+    report.
 
 Index
   1. Regional dummies (Central America & the Caribbean; Latin America; South America)
@@ -61,7 +68,8 @@ Index
   3. Minimum wage in constant 2021 PPP dollars (ILO)
   4. Per-capita real aggregates: GDP, capital stock, employment (PWT)
   5. Sample restriction: complete SCM-window coverage
-  6. Labels
+  6. Log and first-difference transforms of variables of interest
+  7. Labels
 
 ********************************************************************************
 */
@@ -96,6 +104,7 @@ global cpi_raw      "${data}/cpi_us_worldbank.csv"
 global pwt_clean    "${data}/pwt_clean.dta"
 *For variables
 global id           "id year"
+global sumvars      "rgdpo_pc cap_pc lab_pc hc remittances_real_pc minwage_ppp"
 *For parameters
 global dofile       "1b"
 
@@ -278,7 +287,21 @@ assert _complete == 1 if country == "Honduras"
 drop if _complete != 1
 drop _ok_yr _complete
 
-****************************6. Labels **********************************
+*******6. Log and first-difference transforms of variables of interest*******
+
+* Two derived series per $sumvars variable, feeding 02b's "modified variables"
+* report: log_<var> = log(<var>); diff_<var> = D.<var>, the year-over-year
+* change (D. respects xtset gaps -- missing unless year and year-1 both exist
+* for that country). All six $sumvars variables are >0 whenever observed, so
+* log_<var> is never undefined. Section 5's bysort left the data sorted by
+* country, not id/year -- D. needs the panel re-sorted first.
+sort $id
+foreach v of global sumvars {
+    gen double log_`v'  = log(`v')
+    gen double diff_`v' = D.`v'
+}
+
+****************************7. Labels **********************************
 
 label var central_caribbean   "Central America & the Caribbean (=1)"
 label var latin_america       "Latin America as a whole (=1)"
@@ -293,7 +316,19 @@ label var minwage_ppp         "Monthly minimum wage (constant 2021 PPP USD, ILO)
 label var rgdpo_pc            "Real GDP per capita (output-side, chained PPP, 2021 USD)"
 label var cap_pc              "Real capital stock per capita (constant 2021 national prices, 2021 USD)"
 label var lab_pc              "Persons engaged per capita (employment / population)"
-label data "PWT 10.01 + regional dummies, remittances nominal & real (CEPAL, US CPI-U) and minimum wage (ILO) -- 01b"
+label var log_rgdpo_pc             "Log of real GDP per capita"
+label var log_cap_pc               "Log of real capital stock per capita"
+label var log_lab_pc               "Log of employment-to-population ratio"
+label var log_hc                   "Log of human capital index"
+label var log_remittances_real_pc  "Log of real remittances per capita"
+label var log_minwage_ppp          "Log of real minimum wage (monthly)"
+label var diff_rgdpo_pc            "Change in real GDP per capita from previous year"
+label var diff_cap_pc              "Change in real capital stock per capita from previous year"
+label var diff_lab_pc              "Change in employment-to-population ratio from previous year"
+label var diff_hc                  "Change in human capital index from previous year"
+label var diff_remittances_real_pc "Change in real remittances per capita from previous year"
+label var diff_minwage_ppp         "Change in real minimum wage (monthly) from previous year"
+label data "PWT 10.01 + regional dummies, remittances nominal & real (CEPAL, US CPI-U), minimum wage (ILO), log & first-difference transforms -- 01b"
 
 ************************************The End*************************************
 

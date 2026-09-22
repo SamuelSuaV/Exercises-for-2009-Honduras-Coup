@@ -24,11 +24,21 @@ Output
   - temp/synth_<sample>_<model>.dta      Saved synth result per converging combo.
   - output/figures/synth_<sample>_<model>.gph   Synth fig per converging combo
     (equivalent of the Cunningham Texas script's graph save Graph ..., replace).
+  - output/figures/synth_<sample>_<model>.pdf/.png   Same fig, exported for the
+    reports (.gph is gitignored/Stata-only; .pdf/.png are the tracked exhibits).
 
 Notes
   - Models are predictor-list globals; global "models" names them, reached via
     ${`m'}. Samples are donor-pool dummies; global "samples" names them,
     reached via ${lbl_`s'} for the display label.
+  - Three model groups, one depvar each: "models" (level, depvar rgdpo_pc),
+    "models_log" (depvar log_rgdpo_pc) and "models_diff" (depvar diff_rgdpo_pc).
+    models_diff has no _yrs variant (single-year diff predictors risk being
+    missing for countries whose series doesn't extend a year before 1993,
+    which -- like any single-year predictor -- would abort synth outright
+    rather than just exclude that donor; models/models_log's _yrs variants
+    only use level/log single-year predictors, which 01b sec.5 guarantees
+    complete over 1993-2019).
   - mspeperiod(1993-2008), resultsperiod(1993-2019), matching 01b sec.5's
     coverage restriction: every remaining country is complete on
     rgdpo_pc/cap_pc/lab_pc/hc over exactly that window. factors_yrs' hc(1980)
@@ -107,11 +117,26 @@ confirm variable $sumvars
 
 ***********************1. SCM model definition ***********************************
 
-global naive           "rgdpo_pc"                                             // avg. GDP p.c. only
-global naive_yrs       "rgdpo_pc rgdpo_pc(2007) rgdpo_pc(1999) rgdpo_pc(1995)" // + specific years
-global factors         "cap_pc lab_pc hc"                                     // production-function factors
-global factors_gdp     "rgdpo_pc cap_pc lab_pc hc"                            // factors + GDP p.c.
-global factors_yrs     "rgdpo_pc cap_pc(2008) lab_pc lab_pc(1999) lab_pc(2005) lab_pc(2007) hc hc(2000)"
+
+* Models w.o altered vars
+global naive             "rgdpo_pc"                                             // avg. GDP p.c. only
+global naive_yrs         "rgdpo_pc rgdpo_pc(2007) rgdpo_pc(1999) rgdpo_pc(1995)" // + specific years
+global factors           "cap_pc lab_pc hc"                                     // production-function factors
+global factors_gdp       "rgdpo_pc cap_pc lab_pc hc"                            // factors + GDP p.c.
+global factors_yrs       "rgdpo_pc rgdpo_pc(2007) rgdpo_pc(1999) rgdpo_pc(1995) cap_pc(2008) lab_pc lab_pc(1999) lab_pc(2005) lab_pc(2007) hc hc(2000)"
+
+* Models with log
+global naive_log         "log_rgdpo_pc"                                             // avg. GDP p.c. only
+global naive_yrs_log     "log_rgdpo_pc log_rgdpo_pc(2007) log_rgdpo_pc(1999) log_rgdpo_pc(1995)" // + specific years
+global factors_log       "log_cap_pc log_lab_pc log_hc"                                     // production-function factors
+global factors_gdp_log    "log_rgdpo_pc log_cap_pc log_lab_pc log_hc"                            // factors + GDP p.c.
+global factors_yrs_log    "log_rgdpo_pc log_rgdpo_pc(2007) log_rgdpo_pc(1999) log_rgdpo_pc(1995) log_rgdpo_pc(2004) log_cap_pc(2008) log_lab_pc log_lab_pc(1999) log_lab_pc(2005) log_lab_pc(2007) log_hc log_hc(2000)"
+
+* Models with diff
+global naive_diff        "diff_rgdpo_pc"                                             // avg. GDP p.c. only
+global factors_diff      "diff_cap_pc diff_lab_pc diff_hc"                                     // production-function factors
+global factors_gdp_diff  "diff_rgdpo_pc diff_cap_pc diff_lab_pc diff_hc"                            // factors + GDP p.c.
+
 
 * global factors_yrs_rem "rgdpo_pc cap_pc(2008) lab_pc lab_pc(1999) lab_pc(2005) lab_pc(2007) hc hc(1980) remittances_real_pc remittances_real_pc(2007) remittances_real_pc(2008)"
 * -- remittances_real_pc only covers 8 CA&C/Mexico countries (01b sec.2), too
@@ -119,13 +144,21 @@ global factors_yrs     "rgdpo_pc cap_pc(2008) lab_pc lab_pc(1999) lab_pc(2005) l
 * "models" below.
 
 global models "naive naive_yrs factors factors_gdp factors_yrs"
+global models_log "naive_log naive_yrs_log factors_log factors_gdp_log factors_yrs_log"
+global models_diff "naive_diff factors_diff factors_gdp_diff"
 
 *****************************2. SCM implementation *******************************
 
 * Honduras' numeric panel id -- treated unit (trunit) for every sample
 qui levelsof id if country == "Honduras", local(trunit) clean
 
-cd "${temp}"   
+* Model group -> outcome variable (see Notes above)
+local modelgroups        "models models_log models_diff"
+local depvar_models      "rgdpo_pc"
+local depvar_models_log  "log_rgdpo_pc"
+local depvar_models_diff "diff_rgdpo_pc"
+
+cd "${temp}"
 
 foreach s of global samples {
 
@@ -139,17 +172,23 @@ foreach s of global samples {
 
     di as result _n "=== Sample: ${lbl_`s'} ==="
 
-    foreach m of global models {
-        di as text "  Model: `m'"
-        capture noisily synth rgdpo_pc ${`m'}                        ///
-            , trunit(`trunit') trperiod(2009) unitnames(countrycode) ///
-              mspeperiod(1993(1)2008) resultsperiod(1993(1)2019)     ///
-              `counit_opt'                                           ///
-              keep(synth_`s'_`m'.dta) replace fig
-        if _rc {
-            di as error "  -> failed (rc=`=_rc'), skipping `s'/`m'"
+    foreach g of local modelgroups {
+        foreach m of global `g' {
+            di as text "  Model: `m'"
+            capture noisily synth `depvar_`g'' ${`m'}                    ///
+                , trunit(`trunit') trperiod(2009) unitnames(countrycode) ///
+                  mspeperiod(1993(1)2008) resultsperiod(1993(1)2019)     ///
+                  `counit_opt'                                           ///
+                  keep(synth_`s'_`m'.dta) replace fig
+            if _rc {
+                di as error "  -> failed (rc=`=_rc'), skipping `s'/`m'"
+            }
+            else {
+                graph save Graph "${graphs}/synth_`s'_`m'.gph", replace
+                graph export "${graphs}/synth_`s'_`m'.pdf", replace
+                graph export "${graphs}/synth_`s'_`m'.png", replace width(2000)
+            }
         }
-        else graph save Graph "${graphs}/synth_`s'_`m'.gph", replace
     }
 }
 

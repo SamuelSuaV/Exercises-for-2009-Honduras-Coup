@@ -50,9 +50,19 @@ Under `Honduras Excercises/`:
 - `data/` built and raw datasets · `temp/` intermediate files (gitignored; includes
   per-model/per-sample `synth` `keep()` outputs consumed by later do-files — see
   below) · `log/` logs · `output/figures` and `output/tables` final exhibits ·
-  `reports/` a hand-maintained LaTeX report (`PWT Data Analysis.tex`, build with
-  `pdflatex` twice for the ToC) that `\input`s tables/figures `02b` and `04_b`
-  produce — check it when adding a new table/figure someone should see in the writeup.
+  `reports/` three hand-maintained LaTeX reports (build each with `pdflatex`,
+  twice for the ToC), each `\input`/`\includegraphics`-ing tables/figures a
+  specific do-file produces — check the matching one when adding a new
+  table/figure someone should see in the writeup:
+    - `PWT Data Analysis.tex` — `02b` sections 1–5 (summary stats, yearly
+      averages, data coverage, SCM-eligible-country rosters).
+    - `PWT Data Analysis (Modified Variables).tex` — `02b` section 6, the
+      `log_*`/`diff_*` counterparts of the averages figures.
+    - `results.tex` — `03b`/`04_b`'s SCM fit graphs, placebo/RMSPE exhibits
+      and `scm_weights_*` tables; its model list is currently hardcoded via
+      a `\foreach` (see `03b`/`04_b` notes below for the current model set).
+  `reports/questions.txt` is the author's running research notes (Spanish),
+  not built into any report.
 - **`config.do`** (`do/config.do`, gitignored) defines `global root` = repo root
   (an absolute path containing spaces — see the `synth keep()` gotcha below). Every
   paper do-file `include`s it and derives its paths from `${root}`; the only `cd`
@@ -103,25 +113,46 @@ Under `Honduras Excercises/`:
 
 ## `02b_PWT_data_analysis.do` — descriptive exhibits
 
-Reads `pwt_clean.dta`, produces the report's descriptive content: summary-statistics
-tables per sample (Honduras/CA&C/Latin America/World), yearly cross-country averages
-plotted against Honduras (one figure per variable + a combined grid), a per-country
-data-availability table, and a roster of SCM-eligible countries per donor pool
-(`output/tables/scm_countries.tex`) mirroring `03b`'s four samples. All of these
-`\input`/`\includegraphics` into `reports/PWT Data Analysis.tex`.
+Reads `pwt_clean.dta`, produces the descriptive content for two reports:
+
+- Sections 1–5 (→ `reports/PWT Data Analysis.tex`): summary-statistics tables
+  per sample (Honduras/CA&C/Latin America/World), yearly cross-country averages
+  plotted against Honduras (one figure per variable + a combined grid), a
+  per-country data-availability table, and a roster of SCM-eligible countries
+  per donor pool (`output/tables/scm_countries.tex`) mirroring `03b`'s four
+  samples.
+- Section 6 (→ `reports/PWT Data Analysis (Modified Variables).tex`): the same
+  Honduras-vs-regional-average plot recipe as section 3, applied to the
+  `log_<var>`/`diff_<var>` transforms from `01b` section 6 instead of levels
+  (`avg_log_<var>.pdf`/`avg_diff_<var>.pdf` + one combined grid per transform).
+  Reuses section 2's `temp/yearly_averages.dta`, which already carries the
+  log/diff columns alongside the levels.
 
 ## `03b_PWT_SCM_implementation.do` — fit the models
 
-- `global models` defines the active predictor sets (`naive`, `naive_yrs`, `factors`,
-  `factors_gdp`, `factors_yrs`); `global samples` the four donor pools (`world`,
-  `latin_america`, `south_america`, `central_caribbean`, each with a `lbl_*` display
-  name). A `factors_yrs_rem` (remittances) model is defined but commented out and
-  excluded from `global models` — see the `01b` quirks note above for why.
-- One nested loop (`foreach s of global samples { foreach m of global models { synth ... } }`)
-  fits every sample × model combination against Honduras (`trunit`), saving both the
-  `synth` dataset (`temp/synth_<sample>_<model>.dta`, via `keep()`) and the fit graph
-  (`output/figures/synth_<sample>_<model>.gph`, via `fig` + `graph save`). Wrapped in
-  `capture noisily` per combination so one failing cell doesn't kill the loop.
+- Three model groups, each a predictor-list global per member plus one outcome
+  variable: `global models` (level predictors: `naive`, `naive_yrs`, `factors`,
+  `factors_gdp`, `factors_yrs`; depvar `rgdpo_pc`), `global models_log` (same
+  five, `log_`-prefixed predictors; depvar `log_rgdpo_pc`), `global models_diff`
+  (`naive_diff`, `factors_diff`, `factors_gdp_diff` only — **no `_yrs` variant**:
+  a single-year `diff_<var>(year)` predictor risks being missing for any donor
+  whose series doesn't extend one year before 1993, which — like any
+  single-year predictor — would abort `synth` outright rather than just
+  exclude that donor; the level/log `_yrs` variants are safe because `01b`
+  section 5 guarantees those specific years are complete). `global samples` is
+  the four donor pools (`world`, `latin_america`, `south_america`,
+  `central_caribbean`, each with a `lbl_*` display name). A `factors_yrs_rem`
+  (remittances) model is defined but commented out and excluded from
+  `global models` — see the `01b` quirks note above for why.
+- A local `modelgroups "models models_log models_diff"` paired with
+  `depvar_models`/`depvar_models_log`/`depvar_models_diff` locals picks the
+  right outcome variable per group. The loop nests
+  `foreach s of global samples { foreach g of local modelgroups { foreach m of global `g' { synth `depvar_`g'' ... } } }`,
+  fitting every sample × model combination against Honduras (`trunit`), saving
+  both the `synth` dataset (`temp/synth_<sample>_<model>.dta`, via `keep()`)
+  and the fit graph (`output/figures/synth_<sample>_<model>.gph`, via `fig` +
+  `graph save`). Wrapped in `capture noisily` per combination so one failing
+  cell doesn't kill the loop.
 - Donor pool for a given sample = that sample's dummy (or, for `world`, no `counit()`
   restriction at all); Honduras is auto-excluded from its own donor pool by `synth`.
 - Why four donor pools at all: the in-space-placebo p-value's floor is `1/(J+1)`, so a
@@ -133,8 +164,12 @@ data-availability table, and a roster of SCM-eligible countries per donor pool
 
 ## `04_b_PWT_SCM_graphs.do` — inference and reporting
 
-Reuses `03b`'s `global samples`/`models` (just the names — the predictor lists live in
-`03b`). Seven sections, all implemented:
+Reuses `03b`'s `global samples`/`models`/`models_log`/`models_diff` (just the names —
+the predictor lists live in `03b`) concatenated into `global models_all`, which every
+section loops over. Wherever this file needs a model's outcome variable (rerunning
+`synth`, or labelling a gap axis), it infers it from the model name's suffix
+(`_log` → `log_rgdpo_pc`, `_diff` → `diff_rgdpo_pc`, else `rgdpo_pc`) rather than
+repeating `03b`'s group/depvar locals. Seven sections, all implemented:
 
 1. Per-combination gap plot (Honduras − synthetic over time), reading `03b`'s saved
    `.dta` — no `synth` rerun.
@@ -144,8 +179,8 @@ Reuses `03b`'s `global samples`/`models` (just the names — the predictor lists
    (`temp/rmspe_<sample>_<model>.dta`) and stacked placebo gaps
    (`temp/placebo_gaps_<sample>_<model>.dta`). Data only, no graphing. Cost is
    O(pool size) `synth` calls per sample × model — World's ~143-country pool alone is
-   ~715 calls, ~925 across all four samples × five models. This has only been run for
-   small slices during development; sections 3–7 need it run in full first.
+   ~1,859 calls, ~2,405 across all four samples × thirteen models. This has only been
+   run for small slices during development; sections 3–7 need it run in full first.
 3. Histogram of the post/pre RMSPE ratio per sample × model (Texas script's
    `histogram ratio, bin(20) frequency`).
 4. One p-value table (rows = models, columns = samples): `p = rank/(J+1)` of
@@ -154,6 +189,8 @@ Reuses `03b`'s `global samples`/`models` (just the names — the predictor lists
    additionally drops units whose pre-treatment RMSPE exceeds 2× Honduras' own.
 7. Donor-weight tables per sample (rows = country, columns = model, zero-weight cells
    excluded) — pulled straight from `03b`'s saved `_Co_Number`/`_W_Weight`, no rerun.
+   The `longtable`'s column count is computed (`word count ${models_all}`), not
+   hardcoded, so it tracks `models_all` automatically as models are added/removed.
 
 ## Stata/`synth` gotchas learned the hard way
 

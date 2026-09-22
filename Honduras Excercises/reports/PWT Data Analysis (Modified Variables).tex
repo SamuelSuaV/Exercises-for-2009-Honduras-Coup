@@ -1,0 +1,149 @@
+% PWT Data Analysis (Modified Variables)
+% Collects the log/first-difference exhibits produced by
+% Honduras Excercises/do/02b_PWT_data_analysis.do, section 6 (variables built
+% in 01b_PWT_data_cleaning.do, section 6). Mirrors the "Comparison of
+% averages" section of the main "PWT Data Analysis.tex" report, one copy for
+% the log transform and one for the first-difference transform.
+% Build:  pdflatex "PWT Data Analysis (Modified Variables).tex"  (run twice for the table of contents)
+% Paths are relative to Honduras Excercises/reports/.
+
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage[section]{placeins}
+\usepackage{hyperref}
+
+\graphicspath{{../output/figures/}}
+
+\title{PWT Data Analysis (Modified Variables)}
+\author{Samuel Su\'arez}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\bigskip
+
+\noindent This report collects the log-transform and first-difference
+counterparts of the "Comparison of averages" figures in the main
+\texttt{PWT Data Analysis} report, produced by
+\texttt{02b\_PWT\_data\_analysis.do} section~6 from the \texttt{log\_*}/
+\texttt{diff\_*} variables built in \texttt{01b\_PWT\_data\_cleaning.do}
+section~6. Each figure plots Honduras (thick cranberry line) against the
+yearly cross-country mean of Central America \& the Caribbean, South
+America, Latin America and the World; the dashed vertical line marks the
+2009 coup. South America contributes no remittances series (no CEPAL
+coverage).
+
+\section{Log-transformed variables}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{avg_log_combined}
+\caption{All variables (log): Honduras vs.\ regional yearly averages (overview grid).}
+\label{fig:avg-log-combined}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_log_rgdpo_pc}
+\caption{Log of real GDP per capita: Honduras vs.\ regional averages.}
+\label{fig:avg-log-rgdpo}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_log_cap_pc}
+\caption{Log of real capital stock per capita: Honduras vs.\ regional averages.}
+\label{fig:avg-log-cap}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_log_lab_pc}
+\caption{Log of employment-to-population ratio: Honduras vs.\ regional averages.}
+\label{fig:avg-log-lab}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_log_hc}
+\caption{Log of human capital index (Penn World Table): Honduras vs.\ regional averages.}
+\label{fig:avg-log-hc}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_log_remittances_real_pc}
+\caption{Log of real remittances per capita: Honduras vs.\ regional averages.}
+\label{fig:avg-log-remit}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_log_minwage_ppp}
+\caption{Log of real minimum wage, monthly: Honduras vs.\ regional averages.}
+\label{fig:avg-log-minwage}
+\end{figure}
+
+\FloatBarrier
+\section{First-differenced variables}
+
+Each series is the year-over-year change (current year minus previous year);
+gaps in the underlying panel leave the difference missing rather than
+spanning the gap.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{avg_diff_combined}
+\caption{All variables (first difference): Honduras vs.\ regional yearly averages (overview grid).}
+\label{fig:avg-diff-combined}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_diff_rgdpo_pc}
+\caption{Change in real GDP per capita from previous year: Honduras vs.\ regional averages.}
+\label{fig:avg-diff-rgdpo}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_diff_cap_pc}
+\caption{Change in real capital stock per capita from previous year: Honduras vs.\ regional averages.}
+\label{fig:avg-diff-cap}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_diff_lab_pc}
+\caption{Change in employment-to-population ratio from previous year: Honduras vs.\ regional averages.}
+\label{fig:avg-diff-lab}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_diff_hc}
+\caption{Change in human capital index from previous year: Honduras vs.\ regional averages.}
+\label{fig:avg-diff-hc}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_diff_remittances_real_pc}
+\caption{Change in real remittances per capita from previous year: Honduras vs.\ regional averages.}
+\label{fig:avg-diff-remit}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.82\linewidth]{avg_diff_minwage_ppp}
+\caption{Change in real minimum wage (monthly) from previous year: Honduras vs.\ regional averages.}
+\label{fig:avg-diff-minwage}
+\end{figure}
+
+\end{document}

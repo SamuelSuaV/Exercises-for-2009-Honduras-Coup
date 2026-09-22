@@ -36,6 +36,10 @@ Output
   - output/tables/scm_countries.tex   Section 5: SCM-eligible countries per donor
     pool (world/latin_america/south_america/central_caribbean), post 01b sec.5
     coverage restriction.
+  - output/figures/avg_log_<var>.pdf / avg_diff_<var>.pdf   Section 6: same
+    recipe as section 3's figures, for the log_<var>/diff_<var> transforms
+    from 01b sec.6 -- plus avg_log_combined.pdf / avg_diff_combined.pdf.
+    Feed reports/PWT Data Analysis (Modified Variables).tex.
 
 Notes
   - Section 1 summarises the key per-capita variables for four nested samples:
@@ -64,6 +68,11 @@ Notes
     each $sumvars variable is observed (built as a LaTeX longtable + CSV). Needs
     \usepackage{longtable,booktabs}. South America is derived as latin_america
     minus central_caribbean minus Mexico (no separate dummy in pwt_clean.dta).
+  - Section 6 repeats section 3's plot recipe for $sumvars_log and $sumvars_diff
+    (01b sec.6's log/first-difference transforms) instead of the level variables.
+    collapse (section 2) drops variable labels, so titles are looked up from
+    pwt_clean.dta directly. Feeds a separate report, "PWT Data Analysis
+    (Modified Variables).tex".
 
 Index
   1. Summary statistics
@@ -73,6 +82,8 @@ Index
   4. Missing values composition -- per-country availability (year span) of each variable
   5. SCM-eligible countries per donor pool (world/latin_america/south_america/
      central_caribbean), for the report
+  6. Comparison of averages -- modified variables (log & first-difference), for
+     the "Modified Variables" report
 
 ********************************************************************************
 */
@@ -111,6 +122,12 @@ global covcsv       "${tables}/data_coverage.csv"  // section 4: same, as CSV
 *For variables
 global id           "id year"
 global sumvars      "rgdpo_pc cap_pc lab_pc hc remittances_real_pc minwage_ppp"
+global sumvars_log  ""
+global sumvars_diff ""
+foreach v of global sumvars {
+    global sumvars_log  "$sumvars_log log_`v'"
+    global sumvars_diff "$sumvars_diff diff_`v'"
+}
 *For parameters
 global dofile       "2b"
 
@@ -147,7 +164,6 @@ timer on 1
 
 use "${pwt_clean}", clear
 xtset $id
-confirm variable $sumvars
 
 ***********************1. Summary Statistics ***********************************
 
@@ -244,10 +260,12 @@ count if _tag & latin_america & !central_caribbean & !south_america
 assert r(N) == 1
 drop _tag
 
-* collapse stat lists: (mean) keeps the varname, (count) -> n_<varname>
+* collapse stat lists: (mean) keeps the varname, (count) -> n_<varname>.
+* Includes the log/diff transforms (01b sec.6) alongside the levels, so
+* section 6 below can reuse this same yearly_averages.dta.
 local meanlist ""
 local countlist ""
-foreach v of global sumvars {
+foreach v in $sumvars $sumvars_log $sumvars_diff {
     local meanlist  "`meanlist' `v'"
     local countlist "`countlist' n_`v'=`v'"
 }
@@ -270,10 +288,10 @@ preserve
     foreach g of local groups {
         append using `f_`g''
     }
-    order region year $sumvars
+    order region year $sumvars $sumvars_log $sumvars_diff
     sort  region year
     label var region "Sample the yearly means are taken over"
-    label data "Yearly cross-country means of summary-stat variables, by sample -- 02b sec.2"
+    label data "Yearly cross-country means of summary-stat variables (levels + log/diff transforms), by sample -- 02b sec.2"
     compress
     save "${yravg}", replace
 restore
@@ -510,6 +528,95 @@ foreach s of local scmsamples {
 file write _tex "\end{description}" _n
 file close _tex
 di as result "Wrote ${tables}/scm_countries.tex"
+
+*************6. Comparison of averages -- modified variables ****************
+
+* Same recipe as section 3 (Honduras vs. regional yearly averages, 2009 coup
+* line), applied to the log/first-difference transforms instead of the level
+* variables. File names inherit the log_/diff_ prefix already in the varname
+* (avg_log_rgdpo_pc.pdf, avg_diff_rgdpo_pc.pdf, ...), plus one combined grid
+* per transform (avg_log_combined.pdf, avg_diff_combined.pdf).
+
+* Titles: collapse (section 2) drops variable labels, so look them up fresh
+* off pwt_clean.dta into locals keyed by the full (log_/diff_) varname.
+use "${pwt_clean}", clear
+foreach v in $sumvars_log $sumvars_diff {
+    local ttl_`v' : variable label `v'
+}
+
+use "${yravg}", clear
+sort region year
+
+local sc "white_tableau"
+local o_central_caribbean "lcolor(orange%75) lwidth(medthin)"
+local o_south_america     "lcolor(teal%75) lwidth(medthin)"
+local o_latin_america     "lcolor(navy%75) lwidth(medthin)"
+local o_world             "lcolor(gs7%75) lwidth(medthin) lpattern(dash)"
+local L_central_caribbean "Central America & Caribbean"
+local L_south_america     "South America"
+local L_latin_america     "Latin America"
+local L_world             "World"
+
+foreach t in log diff {
+    local combined ""
+    foreach v of global sumvars_`t' {
+
+        local plot   `""'
+        local legreg `""'
+        local k = 0
+        foreach r in central_caribbean south_america latin_america world {
+            quietly count if region == "`r'" & !missing(`v')
+            if r(N) > 0 {
+                local ++k
+                local plot   `"`plot' (line `v' year if region=="`r'", `o_`r'')"'
+                local legreg `"`legreg' `k' "`L_`r''""'
+            }
+        }
+        local ++k
+        local plot `"`plot' (line `v' year if region=="honduras", lcolor(cranberry) lwidth(thick))"'
+        local legend `"`k' "Honduras" `legreg'"'
+
+        twoway `plot', ///
+            scheme(`sc') ///
+            title("`ttl_`v''", size(medium)) ///
+            subtitle("Honduras vs. regional yearly averages", size(small)) ///
+            ytitle("", size(small)) ///
+            ylabel(, angle(0) format(%12.2gc) labsize(small) grid glcolor(gs15) glwidth(vvthin)) ///
+            xtitle("") ///
+            xlabel(1950(1)2023, angle(90) labsize(tiny) tlength(*.6) nogrid) ///
+            xline(2009, lcolor(gs9) lpattern(shortdash) lwidth(thin)) ///
+            legend(order(`legend') rows(1) size(vsmall) region(lstyle(none)) position(6)) ///
+            plotregion(lstyle(none)) ///
+            name(g_`v', replace)
+        graph export "${graphs}/avg_`v'.pdf", replace
+        graph export "${graphs}/avg_`v'.png", replace width(2200)
+
+        * Legend-free, stripped-down copy for the combined grid
+        twoway `plot', ///
+            scheme(`sc') title("`ttl_`v''", size(medsmall)) ///
+            ytitle("") ylabel(#4, angle(0) format(%12.2gc) labsize(vsmall) ///
+                              grid glcolor(gs15) glwidth(vvthin)) ///
+            xtitle("") xlabel(1950(10)2020, angle(90) labsize(vsmall) nogrid) ///
+            xline(2009, lcolor(gs9) lpattern(shortdash) lwidth(thin)) ///
+            plotregion(lstyle(none)) legend(off) name(gc_`v', replace) nodraw
+
+        local combined "`combined' gc_`v'"
+    }
+
+    if "`t'" == "log" local ttl_transform "Log"
+    else              local ttl_transform "First difference"
+    graph combine `combined', ///
+        cols(2) scheme(`sc') xsize(9) ysize(11) imargin(medsmall) ///
+        title("Honduras vs. regional averages -- `ttl_transform' transform, 1950-2023", size(medium)) ///
+        note("Cranberry (thick) = Honduras; orange = Central America & Caribbean;" ///
+             "teal = South America; navy = Latin America; grey dashed = World." ///
+             "Dashed vertical line = 2009 coup.", size(vsmall)) ///
+        name(g_combined_`t', replace)
+    graph export "${graphs}/avg_`t'_combined.pdf", replace
+    graph export "${graphs}/avg_`t'_combined.png", replace width(2000)
+
+    di as result "Wrote ${graphs}/avg_`t'_*.pdf"
+}
 
 ************************************The End*************************************
 
